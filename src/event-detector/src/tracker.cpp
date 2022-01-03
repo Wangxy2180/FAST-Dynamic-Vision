@@ -16,7 +16,9 @@ namespace tracker {
 
 void TrackSingleObj::main() {
   /* params */
+  // 初始化可视化的内容
   InitVisualization();
+  // 读取ros topic参数
   ReadParameters(nh_);
 
   kNewObjThresTime = 0.3;  // 30 milliseconds
@@ -33,19 +35,23 @@ void TrackSingleObj::main() {
   obj_detector_.reset(new ObjDetector);
 
   /* callback */
+  // 改变状态，输出WARNING
   trigger_sub_ =
       nh_.subscribe("/traj_start_trigger", 1, &TrackSingleObj::TriggerCallback,
                     this, ros::TransportHints().tcpNoDelay());
+  // 啥都没干
   img_raw_sub_ =
       nh_.subscribe(k_img_raw_topic_, 1, &TrackSingleObj::ImageCallback, this);
+  // 检测ROI区域
   events_sub_ =
       nh_.subscribe(k_event_topic_, 2, &TrackSingleObj::EventsCallback, this);
 
   imu_sub_ = nh_.subscribe(k_imu_topic_, 10, &TrackSingleObj::ImuCallback, this,
                            ros::TransportHints().tcpNoDelay());
-
+  // 去ROI区域中读取深度数据
   depth_sub_ =
       nh_.subscribe(k_depth_topic_, 1, &TrackSingleObj::DepthCallback, this);
+  // 动态补偿？
   odom_sub_ =
       nh_.subscribe(k_odometry_topic_, 10, &TrackSingleObj::OdometryCallback,
                     this, ros::TransportHints().tcpNoDelay());
@@ -86,6 +92,7 @@ void TrackSingleObj::EventsCallback(
   event_count_times_++;
 
   /* motion compensate input events */
+  // 将事件信息拷贝到这补偿类中
   motion_compensation_->LoadEvents(emsg);
   motion_compensation_->LoadDepth(depth_estimator_->GetDepth());
 
@@ -109,9 +116,11 @@ void TrackSingleObj::EventsCallback(
     return;
   }
 
+  // 如果到这里了，那就是找到目标物体了，先更新一下深度图中ROI的值
   /* project ROI into depth image */
   depth_estimator_->SetEventDetectionRes(max_rect);
 
+  // 计算区域内的平均时间
   small = time_image(max_rect);
   small.convertTo(small, CV_8U);
   auto ts = cv::mean(small, small);  // detection's timestamp
@@ -224,6 +233,7 @@ void TrackSingleObj::ImageCallback(const sensor_msgs::Image::ConstPtr &msg) {
 void TrackSingleObj::DepthCallback(const sensor_msgs::ImageConstPtr &msg) {
   depth_estimator_->main(msg);
   geometry_msgs::PointStamped depth_point;
+  // 获取在事件相机下的坐标
   depth_point = depth_estimator_->GetDepthPoint();
   if (depth_estimator_->istart_) {
     depth_pub_.publish(depth_point);

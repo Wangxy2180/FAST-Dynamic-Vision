@@ -48,6 +48,7 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
   cv::Mat depth_gray_u8(msg->height, msg->width, CV_8UC1);
   depth_gray_ = cv::Mat::zeros(cv::Size(msg->height, msg->width), CV_8UC1);
 
+  // 做深度事件两个相机配准吗？
   /* register depth data to an external camera */
   cv::rgbd::registerDepth(k_depth_camera_intrinsic_, k_event_camera_intrinsic_,
                           k_distort_coeff_, k_RT_event2depth_, cv_ptr->image,
@@ -63,36 +64,43 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
   /* if number of frames > k_valid_frame_, then the rest
   * detection will be regrad as invalid
   */
+//  k_calid_frame_固定是10
   valid_count_++;
   if (valid_count_ > k_valid_frame_) {
     is_obj_ = false;
   }
 
   if (is_obj_) {  
+    // 这个roi_rect_在事件相机检测到物体之后,调用setEventDetectionRes更新该值，
+    // 也就是说这里一直保持着最新的roi_rect_
     cv::Rect r(roi_rect_);
+    // 就是更新Rect r的值
     CropDepthImage(depth_gray_, &r);
 
     cv::Mat obj_img_u8 = depth_gray_u8(r);
     cv::Mat obj_img = depth_gray_(r);
-
+    // topleft坐标
     float u = r.x; 
     float v = r.y;  
-
+    // 计算直方图，分割属于物体的部分，这里得到的是符合条件的距离最近的灰度值的下标
     int loc = SegmentDepth(obj_img_u8);
 
     if (obj_depth_flag_) {
+      // 这里是给做了个二值吗，输出的值是mask_range，就是图5中二值化的部分
       cv::Mat mask_range;
       cv::inRange(obj_img_u8, loc - 1, loc + 1, mask_range);
 
       /* compute mean and std */
       cv::Scalar mean, std;
       cv::meanStdDev(obj_img, mean, std, mask_range);
-
+      // 标准差在一定范围内，才认为它有效
       if ((std[0] < 100) && (std[0] > 0)) {
+        // 计算图像的中心矩
         auto m = cv::moments(mask_range, true);
 
         float roi_u = m.m10 / m.m00;
         float roi_v = m.m01 / m.m00;
+        // uv就是中心矩在整张图上的坐标
         u += roi_u;
         v += roi_v;
         float u0 = k_event_camera_intrinsic_.at<float>(0, 2);
@@ -109,7 +117,8 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
             (mask_range.cols - roi_u) > roi_u ? roi_u : mask_range.cols - roi_u;
         float dv =
             (mask_range.rows - roi_v) > roi_v ? roi_v : mask_range.rows - roi_v;
-
+        
+        // 应该是到事件相机的坐标系吧
         // geometry_msgs::PointStamped depth_p;
         depth_p_.header.stamp = msg->header.stamp;
         depth_p_.header.frame_id = "/world";
@@ -162,23 +171,27 @@ void DepthEst::CropDepthImage(const cv::Mat src, cv::Rect* dst_rect) {
  */
 int DepthEst::SegmentDepth(const cv::Mat& img) {
   cv::MatND hist_info;
+  // 搞不懂这里为啥是128呢
   const int hist_size = 128;
   float hist_range[] = {1, 128};
   const float* hist_ranges[] = {hist_range};
   const int chs = 0;  // image channels
-
+  // 这里对应图5中间那张图，计算某个亮度的像素的数量
   /* compute histogram from depth image */
   cv::calcHist(&img, 1, &chs, cv::Mat(), hist_info, 1, &hist_size,
                &hist_ranges[0]);
-
+  // 上边的输出是hist_info
   int record;
   obj_depth_flag_ = false;
   for (record = 0; record < hist_size; record++) {
+    // 这里比值计算是什么个道理？是说图中至少有2%的灰度值要和他一样？
+    // 似乎是在寻找距离最近的直方图
     if (hist_info.at<int>(record) > 0.02 * img.rows * img.cols) {
       record++; 
       obj_depth_flag_ = true;
       break;
     }
   }
+  // 也就是说，record是一个idx，一个代表灰度值得idx
   return record;
 }

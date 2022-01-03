@@ -15,6 +15,7 @@
 class EkfFilter  // 匀加速
 {
  public:
+//  这几个值都没有被初始化过，理论上会被初始化为0，但是这也太不严谨了
   double x_, y_;
   double v_x_, v_y_;
   double a_x_, a_y_;
@@ -27,6 +28,7 @@ class EkfFilter  // 匀加速
 
  public:
   EkfFilter() {
+    // 噪声矩阵？
     Q << 1, 0, 0, 0, 0, 0,
          0, 1, 0, 0, 0, 0,
          0, 0, 2, 0, 0, 0,
@@ -36,6 +38,7 @@ class EkfFilter  // 匀加速
     Q = Q * 100;  // 后面会乘以dt
 
     R << 0.5, 0, 0, 0.5;
+    // 单位矩阵
     P = Eigen::MatrixXd::Identity(6, 6);
   }
 
@@ -50,6 +53,7 @@ class EkfFilter  // 匀加速
    * @param t
    */
   void predict(ros::Time t) {
+    // 匀加速运动 论文公式11
     double dt = (t - pre_time_).toSec();
     x_ = x_ + v_x_ * dt + 0.5 * a_x_ * dt * dt;
     y_ = y_ + v_y_ * dt + 0.5 * a_y_ * dt * dt;
@@ -64,6 +68,7 @@ class EkfFilter  // 匀加速
          0, 0, 0, 0, 0, 1;
 
     Eigen::Matrix<double, 6, 6> dtq = dt * Q;
+    // 链接公式2/5，协方差计算，不同参数之间的关系
     P = F * P * F.transpose() + dtq;
     pre_time_ = t;
   }
@@ -77,17 +82,23 @@ class EkfFilter  // 匀加速
   void update(double obs_x, double obs_y) {
     double xh = obs_x - x_;
     double yh = obs_y - y_;
-
+    // 一毛一样
+    // https://zhuanlan.zhihu.com/p/195649092
+    // H是测量矩阵？测量的值只有xy的位置？
     Eigen::Matrix<double, 2, 6> H;
     H << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0;
+    // 链接公式4/5，K是增益矩阵
     Eigen::Matrix<double, 2, 2> S = H * P * H.transpose() + R;
-
     Eigen::Matrix<double, 6, 2> K = P * H.transpose() * S.inverse();
+    // 旧的值x_(k-1)?
     Eigen::Matrix<double, 6, 1> Xk_1;
     Xk_1 << x_, y_, v_x_, v_y_, a_x_, a_y_;
     Eigen::Matrix<double, 6, 1> X;
     Eigen::Matrix<double, 2, 1> Y(xh, yh);
+    
+    // X：利用卡尔曼增益更新位置速度加速度
     X = Xk_1 + K * Y;
+    // 链接公式5/5 利用卡尔曼增益更新协方差矩阵
     P = (Eigen::MatrixXd::Identity(6, 6) - K * H) * P;
     x_ = X(0);  // 直接用矩阵会不会好点
     y_ = X(1);

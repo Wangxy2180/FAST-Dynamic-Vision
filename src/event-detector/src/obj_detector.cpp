@@ -51,6 +51,7 @@ void ObjDetector::Detect() {
       Mask(processed_image_, &temp_rect);
     }
     last_rect_ = temp_rect;
+    // is_object 只有这一处为true
     is_object_ = true;
 
   } else {
