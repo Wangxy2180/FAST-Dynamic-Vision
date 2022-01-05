@@ -28,7 +28,7 @@ class EkfFilter  // 匀加速
 
  public:
   EkfFilter() {
-    // 噪声矩阵？
+    // 协方差的噪声矩阵
     Q << 1, 0, 0, 0, 0, 0,
          0, 1, 0, 0, 0, 0,
          0, 0, 2, 0, 0, 0,
@@ -66,7 +66,7 @@ class EkfFilter  // 匀加速
          0, 0, 0, 1, 0, dt,
          0, 0, 0, 0, 1, 0,
          0, 0, 0, 0, 0, 1;
-
+    // dtq就是协方差噪声矩阵
     Eigen::Matrix<double, 6, 6> dtq = dt * Q;
     // 链接公式2/5，协方差计算，不同参数之间的关系
     P = F * P * F.transpose() + dtq;
@@ -83,7 +83,7 @@ class EkfFilter  // 匀加速
     double xh = obs_x - x_;
     double yh = obs_y - y_;
     // 一毛一样
-    // https://zhuanlan.zhihu.com/p/195649092
+    // https://blog.csdn.net/wccsu1994/article/details/84643221
     // H是测量矩阵？测量的值只有xy的位置？
     Eigen::Matrix<double, 2, 6> H;
     H << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0;

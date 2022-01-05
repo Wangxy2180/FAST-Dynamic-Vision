@@ -18,6 +18,7 @@
  * @param roi_rect roi rectangle
  */
 void DepthEst::SetEventDetectionRes(cv::Rect& roi_rect) {
+  // 告知深度，我找到目标啦
   is_obj_ = true;
   roi_rect_ = roi_rect;
   valid_count_ = 0;
@@ -64,9 +65,10 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
   /* if number of frames > k_valid_frame_, then the rest
   * detection will be regrad as invalid
   */
-//  k_calid_frame_固定是10
+//  k_valid_frame_固定是10，valid_count会在event检测到之后被置0，反正不大理解啥意思
   valid_count_++;
   if (valid_count_ > k_valid_frame_) {
+    // 重置，认为还没有找到目标
     is_obj_ = false;
   }
 
@@ -74,7 +76,7 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
     // 这个roi_rect_在事件相机检测到物体之后,调用setEventDetectionRes更新该值，
     // 也就是说这里一直保持着最新的roi_rect_
     cv::Rect r(roi_rect_);
-    // 就是更新Rect r的值
+    // 就是更新Rect r的值，把他扩大
     CropDepthImage(depth_gray_, &r);
 
     cv::Mat obj_img_u8 = depth_gray_u8(r);
@@ -95,12 +97,12 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
       cv::meanStdDev(obj_img, mean, std, mask_range);
       // 标准差在一定范围内，才认为它有效
       if ((std[0] < 100) && (std[0] > 0)) {
-        // 计算图像的中心矩
+        // 计算图像的中心矩，经过测试，边界的0不会影响结果
         auto m = cv::moments(mask_range, true);
 
         float roi_u = m.m10 / m.m00;
         float roi_v = m.m01 / m.m00;
-        // uv就是中心矩在整张图上的坐标
+        // uv就是质心在整张深度图上的坐标
         u += roi_u;
         v += roi_v;
         float u0 = k_event_camera_intrinsic_.at<float>(0, 2);
@@ -118,7 +120,7 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
         float dv =
             (mask_range.rows - roi_v) > roi_v ? roi_v : mask_range.rows - roi_v;
         
-        // 应该是到事件相机的坐标系吧
+        // 应该是到事件相机的坐标系吧，只有这里发送三维坐标来着
         // geometry_msgs::PointStamped depth_p;
         depth_p_.header.stamp = msg->header.stamp;
         depth_p_.header.frame_id = "/world";
@@ -152,6 +154,7 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
  * @param dst_rect pointer to destination rectangle
  */
 void DepthEst::CropDepthImage(const cv::Mat src, cv::Rect* dst_rect) {
+  // 是给他边长扩大两倍？
   dst_rect->x =
       (dst_rect->x - dst_rect->width / 2) < 0 ? 0 : (dst_rect->x - dst_rect->width / 2);
   dst_rect->y =

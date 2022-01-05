@@ -52,9 +52,11 @@ void BulletEst::Init() {
 
   odom_sub_ = nh_.subscribe("odom", 1, &BulletEst::DroneOdomCallback, this,
                             ros::TransportHints().tcpNoDelay());
+  // 二维点订阅
   event_obs_sub_ =
       nh_.subscribe("/cam_bullet_point", 10, &BulletEst::EventObserveCallback,
                     this, ros::TransportHints().tcpNoDelay());
+  // 三务点订阅
   depth_obs_sub_ = nh_.subscribe("/cam_depth_bullet_point", 10,
                                  &BulletEst::DepthObserveCallback, this,
                                  ros::TransportHints().tcpNoDelay());
@@ -96,11 +98,14 @@ void BulletEst::EventObserveCallback(
 
   Eigen::Vector3d p_c;
   Eigen::Vector2d p_pix(msg->point.x, msg->point.y);
+  // 像素坐标转换为无畸变的归一化坐标
   cam_->liftProjective(p_pix, p_c);
+  // 转换到世界坐标camera2world
   Eigen::Vector3d p_w = T_c2w_ * p_c;
 
   if (kIsVisualize == true) {
     /* publish observation position in 3d world frame */
+    // 发送基于世界坐标系下的3d位置，可是深度是0啊
     geometry_msgs::PointStamped vis;
     vis.header.stamp = msg->header.stamp;
     vis.header.frame_id = "/world";

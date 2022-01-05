@@ -95,7 +95,7 @@ void TrackSingleObj::EventsCallback(
   // 将事件信息拷贝到这补偿类中
   motion_compensation_->LoadEvents(emsg);
   motion_compensation_->LoadDepth(depth_estimator_->GetDepth());
-
+  // 就是在这里边进行的更新time_image cnt_img
   motion_compensation_->main();
 
   /* detect objects on compensated images */
@@ -106,6 +106,7 @@ void TrackSingleObj::EventsCallback(
   obj_detector_->LoadImages(event_count, time_image);
   obj_detector_->Detect();
 
+  // 这里顺序不大对啊，应该先判断再获取max_rect
   cv::Rect max_rect = obj_detector_->GetDetectRsts();
 
   /**
@@ -183,6 +184,7 @@ void TrackSingleObj::EventsCallback(
   }
 
   if (state_ == ON || state_ == TRIGGER_SENT) {
+    // 二维轨迹发布
     point_in_plane.point.x = ekf_obj_.x_;
     point_in_plane.point.y = ekf_obj_.y_;
     bullet_estimate_pub_.publish(point_in_plane);
@@ -236,6 +238,7 @@ void TrackSingleObj::DepthCallback(const sensor_msgs::ImageConstPtr &msg) {
   // 获取在事件相机下的坐标
   depth_point = depth_estimator_->GetDepthPoint();
   if (depth_estimator_->istart_) {
+    // 三维轨迹发布
     depth_pub_.publish(depth_point);
   }
 

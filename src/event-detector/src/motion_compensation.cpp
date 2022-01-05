@@ -209,7 +209,7 @@ void MotComp::rotationalCompensate(cv::Mat *timeImg, cv::Mat *eventCount) {
 
   auto t0 = events_buffer_[0].ts;
   float prevDeltaT = 0.0f;
-
+  // 这里对事件遍历进行IMU补偿吗？
   for (int i = 0; i < event_size_; i++) {
     dvs_msgs::Event e = events_buffer_[i];
     float deltaT = (e.ts - t0).toSec();
@@ -238,9 +238,12 @@ void MotComp::rotationalCompensate(cv::Mat *timeImg, cv::Mat *eventCount) {
     int iy = static_cast<int>(eventVec[1]);
 
     if (IsWithinTheBoundary(ix, iy)) {
+      // 更新两张图？
       int *c = eventCount->ptr<int>(iy, ix);
       float *q = timeImg->ptr<float>(iy, ix);
+      // cnt图就加一就行了
       *c += 1;
+      // time_img没看懂咋计算的呢？
       float v = *q;
       *q += (deltaT - v) / (*c);
       // eventCount->at<uchar>(iy, ix) += 1;
