@@ -188,7 +188,7 @@ bool ObjDetector::GaussianModelConvergence(const cv::Mat &msrc,
   GetVariance(matrix, &variance);
 
   // 这里就是那个if-break吧，就是计算两次迭代之后的误差值
-  // 为啥方差小，范围要给他的宽高重设，并为false呢？是因为方差小的时候，就是检测到北京了？
+  // 为啥方差小，范围要给他的宽高重设，并为false呢？是因为方差小的时候，就是检测到背景了？
   if (variance < 1500) {
     final_rect.width = 0;
     final_rect.height = 0;
