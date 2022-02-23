@@ -217,6 +217,7 @@ void MotComp::rotationalCompensate(cv::Mat *timeImg, cv::Mat *eventCount) {
     // rot_skew_mat.setZero();
 
     /* prepare rotation matrix */
+    // 两个事件之间时间较短，可以认为是相同运动，所以不更新
     if (deltaT - prevDeltaT > 1e-3) {  // update rot_K every millisecond
       prevDeltaT = deltaT;
       rotation_vector = omega_avg_ * deltaT;
@@ -230,12 +231,16 @@ void MotComp::rotationalCompensate(cv::Mat *timeImg, cv::Mat *eventCount) {
     eventVec[1] = e.y;
     eventVec[2] = 1;
     eventVec = rot_K * eventVec;  // event warp
+    // cout<<"-----------------rot_k"<<endl<<rot_K<<endl;
+    // cout<<"-----------------eventwarp"<<endl<<eventVec<<endl;
+
     ConvertToHomogeneous(&eventVec);
     // cout << "x " << eventVec[0] << " y " << eventVec[1] << " z " <<
     // eventVec[2] << endl;
 
     int ix = static_cast<int>(eventVec[0]);
     int iy = static_cast<int>(eventVec[1]);
+    // cout<<"-----------------eventvec"<<endl<<eventVec<<endl;
 
     if (IsWithinTheBoundary(ix, iy)) {
       // 更新两张图？
