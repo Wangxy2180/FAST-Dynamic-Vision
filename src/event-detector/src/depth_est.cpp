@@ -44,9 +44,13 @@ void DepthEst::SetEventDetectionRes(bool is_obj) {
 void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
   cv_bridge::CvImageConstPtr cv_ptr;
   cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
+  // 编码是16UC1
+  // cout<<"+++++7777777"<<msg->encoding<<endl;
+  // cout<<"=====999"<<cv_ptr->encoding<<endl;
 
   /* init depth image */
   cv::Mat depth_gray_u8(msg->height, msg->width, CV_8UC1);
+  // 这里有问题啊，数据格式不对啊,应该是16UC1,但是他在下边的转换中自动给变成了16UC1，所以不用担心
   depth_gray_ = cv::Mat::zeros(cv::Size(msg->height, msg->width), CV_8UC1);
 
   // 做深度事件两个相机配准吗？
@@ -54,6 +58,14 @@ void DepthEst::main(const sensor_msgs::ImageConstPtr& msg) {
   cv::rgbd::registerDepth(k_depth_camera_intrinsic_, k_event_camera_intrinsic_,
                           k_distort_coeff_, k_RT_event2depth_, cv_ptr->image,
                           k_event_camera_plane_, depth_gray_, false);
+
+  // cv::imshow("ori depth",cv_ptr->image);
+  // cv::imshow("depth gray",depth_gray_);
+  // cv::waitKey(30);
+  // cout<<depth_gray_.type()<<endl;
+  // cout<<cv_ptr->image.size()<<","<<depth_gray_.size()<<endl;
+  // cout<<cv_ptr->image.at<uint16_t>(100,100)<<","<<depth_gray_.at<uint16_t>(100,100)<<endl;
+
 
   /* morphology operations */
   cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5),
@@ -174,7 +186,7 @@ void DepthEst::CropDepthImage(const cv::Mat src, cv::Rect* dst_rect) {
  */
 int DepthEst::SegmentDepth(const cv::Mat& img) {
   cv::MatND hist_info;
-  // 搞不懂这里为啥是128呢
+  // 搞不懂这里为啥是128呢,就是只计算最近部分的
   const int hist_size = 128;
   float hist_range[] = {1, 128};
   const float* hist_ranges[] = {hist_range};
